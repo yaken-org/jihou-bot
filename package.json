@@ -24,9 +24,11 @@
     "typescript": "^5.5.2"
   },
   "dependencies": {
+    "@discordjs/voice": "^0.18.0",
     "@types/node": "^20.14.9",
     "discord.js": "^14.15.3",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "opusscript": "^0.0.8"
   },
   "volta": {
     "node": "20.15.0",

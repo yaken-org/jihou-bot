@@ -9,6 +9,7 @@ const client = new Client({
     intents: [
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
     ]
 })
 
