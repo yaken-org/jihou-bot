@@ -59,7 +59,10 @@ const handler = async (client: Client<true>) => {
                 const played = await playNicoInMostPopulatedVoiceChannel(client, {
                     fallbackGuildId: defaultVoiceGuildId,
                     playbackDelayMs,
-                    ...(playbackDelayMs > 0 ? { connectionReadyTimeoutMs: playbackDelayMs } : {}),
+                    connectionReadyTimeoutMs: JIHOU_TIMING.voiceConnectionReadyTimeoutMs,
+                    connectionRetryTimeoutMs: JIHOU_TIMING.voiceConnectionRetryTimeoutMs,
+                    playbackStartTimeoutMs: JIHOU_TIMING.voicePlaybackStartTimeoutMs,
+                    playbackFinishTimeoutMs: JIHOU_TIMING.voicePlaybackFinishTimeoutMs,
                 });
                 if (played) {
                     lastVoicePlayedSlot = slotKey;

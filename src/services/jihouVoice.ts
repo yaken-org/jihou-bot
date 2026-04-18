@@ -16,6 +16,7 @@ import path from "path";
 
 const NICO_MP3_PATH = path.resolve(__dirname, "..", "..", "src", "nico.mp3");
 const DEFAULT_CONNECTION_READY_TIMEOUT_MS = 20_000;
+const DEFAULT_CONNECTION_RETRY_TIMEOUT_MS = 10_000;
 const DEFAULT_PLAYBACK_START_TIMEOUT_MS = 15_000;
 const DEFAULT_PLAYBACK_FINISH_TIMEOUT_MS = 120_000;
 let hasLoggedDependencyReport = false;
@@ -24,6 +25,7 @@ type PlayNicoOptions = {
     fallbackGuildId?: string;
     playbackDelayMs?: number;
     connectionReadyTimeoutMs?: number;
+    connectionRetryTimeoutMs?: number;
     playbackStartTimeoutMs?: number;
     playbackFinishTimeoutMs?: number;
 };
@@ -58,6 +60,36 @@ const logDependencyReportOnce = () => {
     }
     hasLoggedDependencyReport = true;
     console.warn("ℹ️ Voice dependency report:\n" + generateDependencyReport());
+};
+
+const waitForConnectionReady = async (
+    connection: ReturnType<typeof joinVoiceChannel>,
+    readyTimeoutMs: number,
+    retryTimeoutMs: number,
+): Promise<boolean> => {
+    try {
+        await entersState(connection, VoiceConnectionStatus.Ready, readyTimeoutMs);
+        return true;
+    } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+            console.warn("⚠️ Voice connection was not ready in time. Retrying with rejoin...");
+            connection.rejoin();
+            try {
+                await entersState(connection, VoiceConnectionStatus.Ready, retryTimeoutMs);
+                return true;
+            } catch (retryError) {
+                if (retryError instanceof Error && retryError.name === "AbortError") {
+                    console.error("❌ Voice connection was still not ready after rejoin retry.");
+                } else {
+                    console.error("❌ Voice connection failed during retry:", retryError);
+                }
+                return false;
+            }
+        }
+
+        console.error("❌ Voice connection failed before playback:", error);
+        return false;
+    }
 };
 
 const playAudioInConnection = (
@@ -146,6 +178,7 @@ export async function playNicoInMostPopulatedVoiceChannel(client: Client<true>, 
         fallbackGuildId,
         playbackDelayMs = 0,
         connectionReadyTimeoutMs = DEFAULT_CONNECTION_READY_TIMEOUT_MS,
+        connectionRetryTimeoutMs = DEFAULT_CONNECTION_RETRY_TIMEOUT_MS,
         playbackStartTimeoutMs = DEFAULT_PLAYBACK_START_TIMEOUT_MS,
         playbackFinishTimeoutMs = DEFAULT_PLAYBACK_FINISH_TIMEOUT_MS,
     } = options;
@@ -180,10 +213,23 @@ export async function playNicoInMostPopulatedVoiceChannel(client: Client<true>, 
         selfDeaf: true,
     });
 
+    connection.on("stateChange", (oldState, newState) => {
+        if (process.env.VOICE_DEBUG === "1") {
+            console.log(`🎙️ Voice state changed: ${oldState.status} -> ${newState.status}`);
+        }
+    });
+
     try {
         const scheduledPlaybackStartAt = Date.now() + Math.max(0, playbackDelayMs);
 
-        await entersState(connection, VoiceConnectionStatus.Ready, connectionReadyTimeoutMs);
+        const isReady = await waitForConnectionReady(
+            connection,
+            connectionReadyTimeoutMs,
+            connectionRetryTimeoutMs,
+        );
+        if (!isReady) {
+            console.warn("⚠️ Proceeding with playback attempt even though connection is not marked Ready.");
+        }
 
         const waitBeforePlayMs = scheduledPlaybackStartAt - Date.now();
         if (waitBeforePlayMs > 0) {
@@ -192,11 +238,7 @@ export async function playNicoInMostPopulatedVoiceChannel(client: Client<true>, 
 
         return playAudioInConnection(connection, playbackStartTimeoutMs, playbackFinishTimeoutMs);
     } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") {
-            console.error("❌ Failed to play nico.mp3: voice connection was not ready before timeout.", error);
-        } else {
-            console.error("❌ Failed to play nico.mp3 in voice channel:", error);
-        }
+        console.error("❌ Failed to play nico.mp3 in voice channel:", error);
         return false;
     } finally {
         connection.destroy();

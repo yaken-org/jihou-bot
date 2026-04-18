@@ -8,6 +8,10 @@ export const JIHOU_TIMING = {
     startupAlignSeconds: 30,
     voiceJoinLeadSeconds: 18,
     voicePlayLeadSeconds: 13,
+    voiceConnectionReadyTimeoutMs: 45_000,
+    voiceConnectionRetryTimeoutMs: 15_000,
+    voicePlaybackStartTimeoutMs: 45_000,
+    voicePlaybackFinishTimeoutMs: 120_000,
 } as const;
 
 const sortedHours = [...JIHOU_TIMING.hours].sort((a, b) => a - b);
