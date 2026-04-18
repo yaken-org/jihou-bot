@@ -1,4 +1,4 @@
-import { ActivityType, Client, ClientEvents, FetchMessagesOptions } from "discord.js";
+import { ActivityType, Client, ClientEvents, FetchMessagesOptions, TextChannel } from "discord.js";
 import registerCommands from "../register";
 import path from "path";
 import {
@@ -20,7 +20,7 @@ const handler = async (client: Client<true>) => {
     });
     await registerCommands();
 
-    const channel = await client.channels.fetch(process.env.DISCORD_CHANNEL_ID ?? '')
+    const channel = await client.channels.fetch(process.env.DISCORD_CHANNEL_ID ?? '') as TextChannel
     if (!channel?.isTextBased()) return;
     const defaultVoiceGuildId = "guildId" in channel ? channel.guildId ?? undefined : undefined;
 
