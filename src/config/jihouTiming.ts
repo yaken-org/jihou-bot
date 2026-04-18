@@ -6,7 +6,8 @@ export const JIHOU_TIMING = {
     second: 0,
     checkIntervalMs: 1000,
     startupAlignSeconds: 30,
-    voiceJoinLeadSeconds: 3,
+    voiceJoinLeadSeconds: 18,
+    voicePlayLeadSeconds: 13,
 } as const;
 
 const sortedHours = [...JIHOU_TIMING.hours].sort((a, b) => a - b);

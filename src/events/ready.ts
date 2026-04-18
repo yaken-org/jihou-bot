@@ -46,8 +46,9 @@ const handler = async (client: Client<true>) => {
     let lastAnnouncedSlot = '';
     let lastVoicePlayedSlot = '';
     let isVoicePlaybackRunning = false;
+    const joinToPlayDelayMs = Math.max(0, (JIHOU_TIMING.voiceJoinLeadSeconds - JIHOU_TIMING.voicePlayLeadSeconds) * 1000);
 
-    const triggerVoicePlaybackForSlot = (slotKey: string) => {
+    const triggerVoicePlaybackForSlot = (slotKey: string, playbackDelayMs: number = 0) => {
         if (slotKey === lastVoicePlayedSlot || isVoicePlaybackRunning) {
             return;
         }
@@ -55,7 +56,11 @@ const handler = async (client: Client<true>) => {
         isVoicePlaybackRunning = true;
         void (async () => {
             try {
-                const played = await playNicoInMostPopulatedVoiceChannel(client, defaultVoiceGuildId);
+                const played = await playNicoInMostPopulatedVoiceChannel(client, {
+                    fallbackGuildId: defaultVoiceGuildId,
+                    playbackDelayMs,
+                    ...(playbackDelayMs > 0 ? { connectionReadyTimeoutMs: playbackDelayMs } : {}),
+                });
                 if (played) {
                     lastVoicePlayedSlot = slotKey;
                     console.log(`🔊 nico.mp3 played for jihou slot ${slotKey}`);
@@ -74,7 +79,12 @@ const handler = async (client: Client<true>) => {
         const secondsUntilNextJihou = getSecondsUntilNextJihou(now);
 
         if (secondsUntilNextJihou === JIHOU_TIMING.voiceJoinLeadSeconds) {
-            triggerVoicePlaybackForSlot(getUpcomingJihouSlotKey(now));
+            triggerVoicePlaybackForSlot(getUpcomingJihouSlotKey(now), joinToPlayDelayMs);
+        }
+
+        if (secondsUntilNextJihou === JIHOU_TIMING.voicePlayLeadSeconds) {
+            // Fallback: if the early-join path failed, retry with immediate playback start.
+            triggerVoicePlaybackForSlot(getUpcomingJihouSlotKey(now), 0);
         }
 
         if (!isJihouTiming(now)) {
@@ -88,7 +98,7 @@ const handler = async (client: Client<true>) => {
         lastAnnouncedSlot = currentSlot;
 
         // Fallback: if playback was not started before jihou, try again at the exact timing.
-        triggerVoicePlaybackForSlot(currentSlot);
+        triggerVoicePlaybackForSlot(currentSlot, 0);
 
         const hour = now.getHours();
         const minute = now.getMinutes();
